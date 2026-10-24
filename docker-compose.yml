@@ -1,0 +1,44 @@
+
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app  # Монтируем код, чтобы правки в IDE сразу были в контейнере
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-secret-key
+      - DATABASE_URL=postgresql://shop_user:Qwerty12345@db:5432/shop_db
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  db:
+    image: postgres:18-alpine
+    container_name: shop_db_container
+    environment:
+      POSTGRES_USER: shop_user
+      POSTGRES_PASSWORD: Qwerty12345
+      POSTGRES_DB: shop_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # <-- ЭТО ВАЖНО: данные не пропадут при удалении контейнера
+    ports:
+      - "5432:5432"
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop_redis_container
+    volumes:
+      - redisdata:/data  # <-- ЭТО ВАЖНО: кэш сохранится
+    restart: always
+    expose:
+      - "6379"  # <-- Критерий про expose (не видно снаружи хоста, только внутри сети docker)
+
+volumes:
+  pgdata:
+  redisdata:
