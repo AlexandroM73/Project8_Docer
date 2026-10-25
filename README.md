@@ -1,4 +1,4 @@
-# Shop API (DRF + Docker)
+# Shop API (DRF  +  Docker)
 
 REST API для сервиса рассылок на Django REST Framework.
 
