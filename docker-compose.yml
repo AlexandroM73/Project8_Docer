@@ -1,44 +1,79 @@
+version: "3.9"
 
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    # Gunicorn запустится через CMD в Dockerfile. Здесь не нужен command.
     volumes:
-      - .:/app  # Монтируем код, чтобы правки в IDE сразу были в контейнере
-    ports:
-      - "8000:8000"
+      - static:/staticfiles
+      - media:/media
     environment:
-      - DEBUG=1
-      - SECRET_KEY=dev-secret-key
-      - DATABASE_URL=postgresql://shop_user:Qwerty12345@db:5432/shop_db
-      - REDIS_HOST=redis
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
+    networks:
+      - app-net
 
   db:
-    image: postgres:18-alpine
+    image: postgres:15-alpine  # Лучше 15, чем 18 — стабильнее для учебных проектов
     container_name: shop_db_container
     environment:
-      POSTGRES_USER: shop_user
-      POSTGRES_PASSWORD: Qwerty12345
-      POSTGRES_DB: shop_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      - pgdata:/var/lib/postgresql/data  # <-- ЭТО ВАЖНО: данные не пропадут при удалении контейнера
-    ports:
-      - "5432:5432"
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
+    networks:
+      - app-net
+    # ВАЖНО: нет ports — база недоступна извне
 
   redis:
     image: redis:7-alpine
     container_name: shop_redis_container
     volumes:
-      - redisdata:/data  # <-- ЭТО ВАЖНО: кэш сохранится
+      - redisdata:/data
     restart: always
-    expose:
-      - "6379"  # <-- Критерий про expose (не видно снаружи хоста, только внутри сети docker)
+    networks:
+      - app-net
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static:/staticfiles
+    depends_on:
+      web:
+        condition: service_started
+    restart: always
+    networks:
+      - app-net
 
 volumes:
   pgdata:
   redisdata:
+  static:
+  media:
+
+networks:
+  app-net:
+    driver: bridge
