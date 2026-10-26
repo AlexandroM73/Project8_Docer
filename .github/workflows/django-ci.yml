@@ -1,0 +1,70 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ "main", "homework-part1" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: shop_db
+          POSTGRES_USER: shop_user
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Создаём .env на лету, используя секреты
+      - name: Create .env for CI
+        run: |
+          cat > .env <<EOF
+          DJANGO_SETTINGS_MODULE=shop_api.settings
+          DATABASE_URL=postgresql://shop_user:${{ secrets.DB_PASSWORD }}@localhost:5432/shop_db
+          REDIS_URL=redis://localhost:6379/0
+          DEBUG=True
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          EOF
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Collect static
+        run: python manage.py collectstatic --noinput
+
+      - name: Run tests
+        run: python manage.py test habits
