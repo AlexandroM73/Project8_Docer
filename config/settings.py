@@ -82,13 +82,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # --- DRF: строгий контроль доступа (только авторизованные) ---
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # <-- Важно: без входа нельзя вообще ничего
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
+    # 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,  # Показываем по 10 привычек на странице
 }
+
 
 # --- CORS: читаем из .env ---
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')

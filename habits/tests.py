@@ -85,3 +85,45 @@ class HabitAPITests(TestCase):
         self.assertEqual(len(data['results']), 5)
         self.assertIsNotNone(data['next'])
         self.assertEqual(data['count'], 6)
+
+    def test_pagination_and_own_habits_only(self):
+        """Пагинация (5 шт/стр) + видим только свои привычки."""
+
+        # Создаём 15 привычек для текущего пользователя
+        for i in range(15):
+            Habit.objects.create(
+                user=self.user,
+                action=f"Привычка {i}",
+                time="08:00:00",
+                period_days=1,
+                execution_time_seconds=60
+            )
+
+        # Создаём привычку для ДРУГОГО пользователя
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        other_user = User.objects.create_user(username="other_guy", password="Qwerty12345", email="other@test.com")
+        Habit.objects.create(
+            user=other_user,
+            action="Чужая супер-привычка",
+            time="09:00:00",
+            period_days=2,
+            execution_time_seconds=90
+        )
+
+        response = self.client.get(self.url)  # self.url — это список привычек
+        data = response.json()
+
+        # Проверка пагинации: должен быть словарь с ключом 'results'
+        self.assertIn('results', data, "Пагинация не сработала: нет ключа 'results'")
+
+        # ТЕПЕРЬ проверяем на 5, а не на 10!
+        self.assertEqual(len(data['results']), 5, "На первой странице должно быть 5 привычек (page_size=5)")
+
+        # Проверка безопасности: чужой привычки нет в результатах
+        actions = [h['action'] for h in data['results']]
+        self.assertNotIn("Чужая супер-привычка", actions, "Пользователь видит чужие привычки!")
+
+        # Проверка общего количества (должно быть 15 своих)
+        self.assertEqual(data['count'], 15, "Неверное общее количество привычек")
+
