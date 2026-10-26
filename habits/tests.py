@@ -127,3 +127,29 @@ class HabitAPITests(TestCase):
         # Проверка общего количества (должно быть 15 своих)
         self.assertEqual(data['count'], 15, "Неверное общее количество привычек")
 
+    def test_cannot_have_both_reward_and_related_habit(self):
+        parent_habit = Habit.objects.create(
+            user=self.user,
+            action="Бегать по утрам",
+            time="07:00:00",
+            period_days=1,
+            execution_time_seconds=60,
+            is_pleasant=False
+        )
+
+        payload = {
+            "action": "Пить воду",
+            "time": "08:00:00",
+            "period_days": 1,
+            "execution_time_seconds": 30,
+            "reward": "Чашка кофе",
+            "related_habit": parent_habit.id,
+            "is_pleasant": False
+        }
+
+        response = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+        expected_error = "Нельзя указать и вознаграждение, и связанную привычку одновременно."
+        self.assertIn(expected_error, response.data['non_field_errors'])

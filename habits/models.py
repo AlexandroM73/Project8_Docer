@@ -63,7 +63,7 @@ class Habit(models.Model):
         # Она теперь только в сериализаторе.
 
     def save(self, *args, **kwargs):
-        # Убираем full_clean(), оставляем только сохранение
+        # Убираем full_clean() из save(), чтобы не дублировать логику и не ломать DRF
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1,4 +1,4 @@
-name: Django CI/CD
+name: Django CI (Demo Deploy)
 
 on:
   push:
@@ -71,30 +71,30 @@ jobs:
 
 
   deploy:
-    name: Deploy to server
+    name: Deploy (DEMO)
     runs-on: ubuntu-latest
-    needs: test                # Запускается только если test прошёл успешно
-    if: github.ref == 'refs/heads/main'  # Только для ветки main
+    needs: test                # Запускается только если тесты прошли
+    if: github.ref == 'refs/heads/main'  # Только для main
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup SSH Key
+      - name: Simulate deploy (DEMO mode)
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-          # Добавляем сервер в known_hosts, чтобы SSH не спрашивал подтверждение
-          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Pull and restart containers
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }} && \
-            docker compose pull && \
-            docker compose up -d && \
-            docker system prune -f || true
-          "
+          echo "=== ДЕМО ДЕПЛОЯ ==="
+          echo "Цель: показать структуру деплоя без реального сервера"
+          echo ""
+          echo "DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}"
+          echo "DEPLOY_USER: ${{ secrets.DEPLOY_USER }}"
+          echo "DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}"
+          echo ""
+          echo "В реальном сценарии здесь выполнялись бы:"
+          echo "  ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          echo "  cd ${{ secrets.DEPLOY_PATH }}"
+          echo "  docker compose pull"
+          echo "  docker compose up -d"
+          echo ""
+          echo "Поскольку сервера нет, деплой имитируется."
+          echo "Все секреты успешно подставлены (но не раскрыты в логах)."
+          echo "=== ДЕМО ЗАВЕРШЁН ==="
