@@ -3,10 +3,19 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Читаем из .env или ставим дефолт для локального запуска без Docker
+# --- Переменные окружения ---
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- Redis (для Celery/кеша в будущем) ---
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+
+# --- База данных (через переменные!) ---
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -18,14 +27,6 @@ DATABASES = {
     }
 }
 
-# Для Redis
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-
-ALLOWED_HOSTS = ['*']  # Для локальной разработки
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,19 +35,27 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Твой проект
+    'habits',
+    'api',
+
     # DRF
     'rest_framework',
-    # твоё API-приложение
-    'api',
+
+    # CORS — обязательно для критерия
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    # Самое первое — CORS
+    'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',      # Обязательно ДО AuthenticationMiddleware
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',   # Обязательно для админки
-    'django.contrib.messages.middleware.MessageMiddleware',       # Обязательно для админки
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -70,41 +79,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# --- База данных (локальная PostgreSQL) ---
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'shop_db',
-        'USER': 'shop_user',
-        'PASSWORD': 'Qwerty12345',  # ⚠️ Если пароль другой — поменяй здесь
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
-
-# --- Redis (для кеширования/задач — пока не критичен для migrate/runserver) ---
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-
-# --- DRF ---
+# --- DRF: строгий контроль доступа (только авторизованные) ---
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
+    # 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,  # Показываем по 10 привычек на странице
 }
 
-# --- CORS ---
-CORS_ALLOW_ALL_ORIGINS = True  # Для локальной разработки; в проде лучше явно указать origins
 
-# --- Статика и медиа ---
+# --- CORS: читаем из .env ---
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+# Если нужно разрешить все (только для локальной разработки), можно оставить CORS_ALLOW_ALL_ORIGINS=True, но для оценки лучше явный список.
+
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
-# --- Время и язык ---
 LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
