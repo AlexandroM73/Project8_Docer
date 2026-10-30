@@ -3,3 +3,9 @@ djangorestframework
 psycopg2-binary
 redis
 gunicorn
+django-cors-headers
+celery
+dj-database-url
+pytest
+django-celery-beat
+pytest-cov

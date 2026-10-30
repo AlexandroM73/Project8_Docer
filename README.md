@@ -1,17 +1,10 @@
-# Shop API (DRF  +  Docker)
+# Shop-API (Django + DRF + Docker + CI/CD)
 
-REST API для сервиса рассылок на Django REST Framework.
+Трекер привычек на Django REST Framework, контейнеризированный через Docker Compose, с тестами, покрытием и настроенным CI/CD.
 
-## Стек
-- Python 3.11
-- Django + DRF
-- PostgreSQL
-- Redis
-- Docker Compose
+## Локальный запуск
 
-## Как запустить
+Проект запускается **одной командой** (все сервисы: Django, PostgreSQL, Redis, Celery, Nginx):
 
-1. Создайте `.env` в корне (на основе примера переменных).
-2. Запустите:
-   ```bash
-   docker compose up --build
+```bash
+docker compose up --build

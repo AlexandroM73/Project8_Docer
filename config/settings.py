@@ -1,30 +1,44 @@
 import os
+import dj_database_url
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Читаем из .env или ставим дефолт для локального запуска без Docker
+# --- Переменные окружения ---
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- База данных (ЕДИНСТВЕННЫЙ ПРАВИЛЬНЫЙ СПОСОБ ДЛЯ DOCKER) ---
+#DATABASES = {
+#    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+#}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'shop_db'),
-        'USER': os.getenv('DB_USER', 'shop_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'Qwerty12345'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'NAME': 'shop_db',
+        'USER': 'shop_user',
+        'PASSWORD': 'Qwerty12345',
+        'HOST': 'db',          # <-- ВАЖНО: имя сервиса из docker-compose, а не localhost!
+        'PORT': '5432',
     }
 }
 
-# Для Redis
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+
+
+# --- Redis (для Celery и будущего кеширования) ---
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')  # Важно: по умолчанию 'redis', а не 'localhost'
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 
-ALLOWED_HOSTS = ['*']  # Для локальной разработки
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# --- Celery Configuration ---
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,23 +48,33 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Твой проект
+    'habits',
+    'api',
+
     # DRF
     'rest_framework',
-    # твоё API-приложение
-    'api',
+
+    # CORS
+    'corsheaders',
+
+    # Celery
+    'django_celery_beat',  # Полезно для периодических задач, можно оставить
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',      # Обязательно ДО AuthenticationMiddleware
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',   # Обязательно для админки
-    'django.contrib.messages.middleware.MessageMiddleware',       # Обязательно для админки
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 TEMPLATES = [
     {
@@ -68,43 +92,28 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
-
-# --- База данных (локальная PostgreSQL) ---
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'shop_db',
-        'USER': 'shop_user',
-        'PASSWORD': 'Qwerty12345',  # ⚠️ Если пароль другой — поменяй здесь
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
-
-# --- Redis (для кеширования/задач — пока не критичен для migrate/runserver) ---
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-
-# --- DRF ---
+# --- DRF: строгий контроль доступа и пагинация ---
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
 }
 
 # --- CORS ---
-CORS_ALLOW_ALL_ORIGINS = True  # Для локальной разработки; в проде лучше явно указать origins
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000'
+).split(',')
 
-# --- Статика и медиа ---
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
-# --- Время и язык ---
 LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
